@@ -34,13 +34,23 @@ class _ChatScreenState extends State<ChatScreen> {
 
   bool isLoading = false;
 
+  int? currentConversationId;
+
+  List conversations = [];
+
   List messages = [];
+
+  String selectedModel = "llama3";
 
   Future<void> sendMessage() async {
 
     // Don't send empty message
     if (controller.text.trim().isEmpty) {
       return;
+    }
+
+    if (currentConversationId == null) {
+      await createConversation();
     }
 
     // Store user message before API call
@@ -67,7 +77,7 @@ class _ChatScreenState extends State<ChatScreen> {
       final response = await http.get(
 
         Uri.parse(
-          "http://127.0.0.1:8000/chat?prompt=$userMessage",
+          "http://127.0.0.1:8000/chat?conversation_id=$currentConversationId&prompt=${Uri.encodeComponent(userMessage)}&model=$selectedModel"
         ),
       );
 
@@ -118,24 +128,92 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Future<void> loadHistory() async {
+  Future<void> loadConversations() async {
 
-  final response = await http.get(
-    Uri.parse("http://127.0.0.1:8000/history"),
-  );
+    final response = await http.get(
+      Uri.parse(
+        "http://127.0.0.1:8000/conversations",
+      ),
+    );
 
-  final data = jsonDecode(response.body);
+    final data = jsonDecode(response.body);
 
-  setState(() {
-    messages = data;
-  });
-}
+    setState(() {
+      conversations = data;
+    });
+  }
+
+  Future<void> loadMessages(
+  int conversationId,
+  ) async {
+
+    final response = await http.get(
+      Uri.parse(
+        "http://127.0.0.1:8000/messages/$conversationId",
+      ),
+    );
+
+    final data = jsonDecode(
+      response.body,
+    );
+
+    setState(() {
+
+      currentConversationId =
+          conversationId;
+
+      messages = data;
+    });
+  }
+
+  Future<void> createConversation() async {
+
+    final response = await http.post(
+      Uri.parse(
+        "http://127.0.0.1:8000/conversation",
+      ),
+    );
+
+    final data = jsonDecode(response.body);
+
+    setState(() {
+      currentConversationId =
+          data["conversation_id"];
+      messages = [];
+    });
+    loadConversations();
+  }
+
+  Future<void> deleteConversation(
+    int conversationId,
+  ) async {
+
+    await http.delete(
+      Uri.parse(
+        "http://127.0.0.1:8000/conversation/$conversationId",
+      ),
+    );
+
+    loadConversations();
+  }
+
+//   Future<void> loadHistory() async {
+
+//   final response = await http.get(
+//     Uri.parse("http://127.0.0.1:8000/history"),
+//   );
+
+//   final data = jsonDecode(response.body);
+
+//   setState(() {
+//     messages = data;
+//   });
+// }
 
  @override
 void initState() {
   super.initState();
-
-  loadHistory();
+  loadConversations();
 }
 
   @override
@@ -146,11 +224,110 @@ void initState() {
         title: const Text("AI Workspace"),
       ),
 
+      drawer: Drawer(
+        child: ListView(
+          children: [
+
+            const DrawerHeader(
+              child: Text(
+                "Conversations",
+              ),
+            ),
+
+            ListTile(
+
+              leading: const Icon(
+                Icons.add,
+              ),
+
+              title: const Text(
+                "New Chat",
+              ),
+
+              onTap: () {
+
+                createConversation();
+
+                Navigator.pop(
+                  context,
+                );
+              },
+            ),
+
+            ...conversations.map((conversation) {
+
+              return ListTile(
+
+                title: Text(
+                  conversation["title"],
+                ),
+
+                onTap: () {
+
+                  loadMessages(
+                    conversation["id"],
+                  );
+
+                  Navigator.pop(
+                    context,
+                  );
+                },
+
+                onLongPress: () async {
+
+                  await deleteConversation(
+                    conversation["id"],
+                  );
+                },
+              );
+            }).toList(),
+          ],
+        ),
+      ),
+
       body: Padding(
         padding: const EdgeInsets.all(16),
 
         child: Column(
           children: [
+
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                ),
+
+                child: DropdownButton<String>(
+
+                  value: selectedModel,
+
+                  isExpanded: true,
+
+                  underline: const SizedBox(),
+
+                  items: const [
+
+                    DropdownMenuItem(
+                      value: "llama3",
+                      child: Text("Llama 3"),
+                    ),
+
+                    DropdownMenuItem(
+                      value: "mistral",
+                      child: Text("Mistral"),
+                    ),
+                  ],
+
+                  onChanged: (value) {
+
+                    setState(() {
+
+                      selectedModel = value!;
+                    });
+                  },
+                ),
+              ),
+            ),
 
             TextField(
               controller: controller,
