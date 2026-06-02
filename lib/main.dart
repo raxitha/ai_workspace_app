@@ -42,6 +42,83 @@ class _ChatScreenState extends State<ChatScreen> {
 
   String selectedModel = "llama3";
 
+  Future<void> showRenameDialog(
+    int conversationId,
+  ) async {
+
+    final renameController =
+        TextEditingController();
+
+    showDialog(
+
+      context: context,
+
+      builder: (context) {
+
+        return AlertDialog(
+
+          title: const Text(
+            "Rename Conversation",
+          ),
+
+          content: TextField(
+            controller: renameController,
+            decoration:
+                const InputDecoration(
+              hintText: "Enter title",
+            ),
+          ),
+
+          actions: [
+
+            TextButton(
+              onPressed: () {
+
+                Navigator.pop(
+                  context,
+                );
+              },
+              child: const Text(
+                "Cancel",
+              ),
+            ),
+
+            ElevatedButton(
+              onPressed: () async {
+
+                await renameConversation(
+                  conversationId,
+                  renameController.text,
+                );
+
+                Navigator.pop(
+                  context,
+                );
+              },
+              child: const Text(
+                "Save",
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> renameConversation(
+    int conversationId,
+    String title,
+  ) async {
+
+    await http.put(
+      Uri.parse(
+        "http://127.0.0.1:8000/conversation/$conversationId?title=${Uri.encodeComponent(title)}",
+      ),
+    );
+
+    loadConversations();
+  }
+
   Future<void> sendMessage() async {
 
     // Don't send empty message
@@ -221,16 +298,40 @@ void initState() {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("AI Workspace"),
+        title: Text(
+          "AI Workspace • ${selectedModel.toUpperCase()}",
+        ),
       ),
 
       drawer: Drawer(
         child: ListView(
           children: [
 
-            const DrawerHeader(
-              child: Text(
-                "Conversations",
+            DrawerHeader(
+              child: Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
+
+                mainAxisAlignment:
+                    MainAxisAlignment.end,
+
+                children: const [
+
+                  Icon(
+                    Icons.smart_toy,
+                    size: 40,
+                  ),
+
+                  SizedBox(height: 10),
+
+                  Text(
+                    "AI Workspace",
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
             ),
 
@@ -273,10 +374,63 @@ void initState() {
                   );
                 },
 
-                onLongPress: () async {
+                onLongPress: () {
 
-                  await deleteConversation(
-                    conversation["id"],
+                  showModalBottomSheet(
+
+                    context: context,
+
+                    builder: (context) {
+
+                      return Column(
+
+                        mainAxisSize:
+                            MainAxisSize.min,
+
+                        children: [
+
+                          ListTile(
+
+                            leading:
+                                const Icon(Icons.edit),
+
+                            title:
+                                const Text("Rename"),
+
+                            onTap: () {
+
+                              Navigator.pop(
+                                context,
+                              );
+
+                              showRenameDialog(
+                                conversation["id"],
+                              );
+                            },
+                          ),
+
+                          ListTile(
+
+                            leading:
+                                const Icon(Icons.delete),
+
+                            title:
+                                const Text("Delete"),
+
+                            onTap: () async {
+
+                              Navigator.pop(
+                                context,
+                              );
+
+                              await deleteConversation(
+                                conversation["id"],
+                              );
+                            },
+                          ),
+                        ],
+                      );
+                    },
                   );
                 },
               );
@@ -329,19 +483,31 @@ void initState() {
               ),
             ),
 
-            TextField(
-              controller: controller,
-              decoration: const InputDecoration(
-                hintText: "Ask something...",
+           Row(
+            children: [
+
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  decoration: InputDecoration(
+                    hintText: "Ask something...",
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ),
               ),
-            ),
 
-            const SizedBox(height: 20),
+              const SizedBox(width: 10),
 
-            ElevatedButton(
-              onPressed: sendMessage,
-              child: const Text("Send"),
-            ),
+              IconButton(
+                onPressed: sendMessage,
+                icon: const Icon(
+                  Icons.send,
+                ),
+              ),
+            ],
+          ),
 
             const SizedBox(height: 20),
 
@@ -382,11 +548,20 @@ void initState() {
                       decoration: BoxDecoration(
 
                         // Different colors for user & AI
-                        color: message["role"] == "user"
-                            ? Colors.blue
-                            : Colors.grey[300],
+                       color: message["role"] == "user"
+                          ? Colors.blue.shade600
+                          : Colors.grey.shade200,
 
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.only(
+                          topLeft: const Radius.circular(18),
+                          topRight: const Radius.circular(18),
+                          bottomLeft: Radius.circular(
+                            message["role"] == "user" ? 18 : 4,
+                          ),
+                          bottomRight: Radius.circular(
+                            message["role"] == "user" ? 4 : 18,
+                          ),
+                        ),
                       ),
 
                       child: Text(
