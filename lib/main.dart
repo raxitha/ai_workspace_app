@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import 'dart:html' as html;
+
 void main() {
   runApp(const MyApp());
 }
@@ -102,6 +104,46 @@ class _ChatScreenState extends State<ChatScreen> {
           ],
         );
       },
+    );
+  }
+  
+  Future<void> exportConversation() async {
+
+    if (currentConversationId == null) {
+      return;
+    }
+
+    final response = await http.get(
+      Uri.parse(
+        "http://127.0.0.1:8000/export/$currentConversationId",
+      ),
+    );
+
+    final bytes = utf8.encode(
+      response.body,
+    );
+
+    final blob = html.Blob(
+      [bytes],
+    );
+
+    final url =
+        html.Url.createObjectUrlFromBlob(
+      blob,
+    );
+
+    final anchor =
+        html.AnchorElement(
+          href: url,
+        )
+          ..setAttribute(
+            "download",
+            "chat_$currentConversationId.txt",
+          )
+          ..click();
+
+    html.Url.revokeObjectUrl(
+      url,
     );
   }
 
@@ -301,6 +343,18 @@ void initState() {
         title: Text(
           "AI Workspace • ${selectedModel.toUpperCase()}",
         ),
+        actions: [
+
+          IconButton(
+
+            icon: const Icon(
+              Icons.download,
+            ),
+
+            onPressed:
+                exportConversation,
+          ),
+        ],
       ),
 
       drawer: Drawer(
