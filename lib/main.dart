@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:file_picker/file_picker.dart';
 
 import 'dart:html' as html;
 
@@ -43,6 +44,53 @@ class _ChatScreenState extends State<ChatScreen> {
   List messages = [];
 
   String selectedModel = "llama3";
+
+  Future<void> uploadFile() async {
+
+    // Open file picker
+    FilePickerResult? result =
+        await FilePicker.platform.pickFiles();
+
+    if (result == null) {
+      return;
+    }
+
+    final file =
+        result.files.single;
+
+    var request =
+        http.MultipartRequest(
+          "POST",
+          Uri.parse(
+            "http://127.0.0.1:8000/upload",
+          ),
+        );
+
+    request.files.add(
+      http.MultipartFile.fromBytes(
+        "file",
+        file.bytes!,
+        filename: file.name,
+      ),
+    );
+
+    var response =
+        await request.send();
+
+    if (response.statusCode == 200) {
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(
+
+        const SnackBar(
+          content: Text(
+            "File uploaded successfully",
+          ),
+        ),
+      );
+    }
+  }
 
   Future<void> showRenameDialog(
     int conversationId,
@@ -524,6 +572,11 @@ void initState() {
                       value: "mistral",
                       child: Text("Mistral"),
                     ),
+
+                    DropdownMenuItem(
+                      value: "qwen3",
+                      child: Text("Qwen3"),
+                    ),
                   ],
 
                   onChanged: (value) {
@@ -560,6 +613,15 @@ void initState() {
                   Icons.send,
                 ),
               ),
+              ElevatedButton.icon(
+                onPressed: uploadFile,
+                icon: const Icon(
+                  Icons.upload_file,
+                ),
+                label: const Text(
+                  "Upload Knowledge",
+                ),
+              )
             ],
           ),
 
